@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centro de Monitoreo - Alertas Wialon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes pulse-red {
+      0%, 100% { background-color: rgba(220, 38, 38, 0.2); }
+      50% { background-color: rgba(220, 38, 38, 0.6); }
+    }
+    .alerta-critica {
+      animation: pulse-red 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col">
+
+  <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-6">
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-600/20 text-blue-500 mb-2">
+          <i data-lucide="shield-alert" class="w-6 h-6"></i>
+        </div>
+        <h1 class="text-xl font-bold text-white">Acceso a Torre de Control</h1>
+        <p class="text-xs text-slate-400">Ingresa tus credenciales para acceder al sistema de monitoreo</p>
+      </div>
+
+      <form id="form-login" onsubmit="validarAcceso(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Usuario / Monitorista</label>
+          <input type="text" id="login-user" required placeholder="Ej. Monitorista_01" 
+                 class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Contraseña</label>
+          <input type="password" id="login-pass" required placeholder="••••••••" 
+                 class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
+        </div>
+        <div id="login-error" class="text-xs text-red-500 hidden font-medium">
+          Usuario o contraseña incorrectos.
+        </div>
+        <button type="submit" 
+                class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition duration-200 text-sm shadow-lg shadow-blue-600/30">
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="radar" class="w-6 h-6 text-blue-500"></i>
+        <h2 class="font-bold text-lg text-white tracking-wide">Monitoreo Wialon v1.0</h2>
+      </div>
+
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2 text-xs text-slate-400">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Actualización en vivo (<span id="timer-counter">10</span>s)</span>
+        </div>
+
+        <div class="flex items-center space-x-2 border-l border-slate-800 pl-4">
+          <i data-lucide="user" class="w-4 h-4 text-slate-400"></i>
+          <span id="user-display" class="text-xs font-medium text-slate-200">--</span>
+          <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 ml-2" title="Cerrar sesión">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 p-6 overflow-y-auto space-y-6">
+      
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase">Botón de Pánico</p>
+            <h3 id="count-panico" class="text-2xl font-bold text-red-500 mt-1">0</h3>
+          </div>
+          <div class="p-3 bg-red-500/10 text-red-500 rounded-lg"><i data-lucide="siren" class="w-6 h-6"></i></div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase">Paro de Motor</p>
+            <h3 id="count-paro" class="text-2xl font-bold text-amber-500 mt-1">0</h3>
+          </div>
+          <div class="p-3 bg-amber-500/10 text-amber-500 rounded-lg"><i data-lucide="engine" class="w-6 h-6"></i></div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase">Desconexiones</p>
+            <h3 id="count-desconexion" class="text-2xl font-bold text-yellow-500 mt-1">0</h3>
+          </div>
+          <div class="p-3 bg-yellow-500/10 text-yellow-500 rounded-lg"><i data-lucide="wifi-off" class="w-6 h-6"></i></div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase">Excesos de Velocidad</p>
+            <h3 id="count-velocidad" class="text-2xl font-bold text-blue-400 mt-1">0</h3>
+          </div>
+          <div class="p-3 bg-blue-500/10 text-blue-400 rounded-lg"><i data-lucide="gauge" class="w-6 h-6"></i></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 class="font-bold text-white text-base">Alertas Recientes / Pendientes</h3>
+          <button onclick="cargarAlertas()" class="flex items-center space-x-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refrescar</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Prioridad</th>
+                <th class="py-3 px-4">Unidad</th>
+                <th class="py-3 px-4">Evento</th>
+                <th class="py-3 px-4">Fecha / Hora</th>
+                <th class="py-3 px-4">Ubicación</th>
+                <th class="py-3 px-4">Estatus</th>
+                <th class="py-3 px-4 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-alertas" class="divide-y divide-slate-800/60">
+              </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div id="modal-atender" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-lg text-white">Atender Alerta</h3>
+        <button onclick="cerrarModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2 text-sm bg-slate-950 p-3 rounded-lg border border-slate-800/80">
+        <p><span class="text-slate-400">Unidad:</span> <strong id="modal-unidad" class="text-white">--</strong></p>
+        <p><span class="text-slate-400">Evento:</span> <strong id="modal-evento" class="text-amber-400">--</strong></p>
+        <p><span class="text-slate-400">Fecha/Hora:</span> <span id="modal-fecha" class="text-slate-300">--</span></p>
+      </div>
+
+      <form onsubmit="guardarAtencion(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Dictamen de Atención</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" id="btn-procede" onclick="seleccionarDictamen('PROCEDE')" 
+                    class="py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-emerald-500">
+              PROCEDE
+            </button>
+            <button type="button" id="btn-no-procede" onclick="seleccionarDictamen('NO PROCEDE')" 
+                    class="py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-red-500">
+              NO PROCEDE
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Comentarios / Bitácora</label>
+          <textarea id="modal-comentario" rows="3" required placeholder="Escribe las acciones tomadas..." 
+                    class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-2">
+          <button type="button" onclick="cerrarModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm hover:bg-slate-700">
+            Cancelar
+          </button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm shadow-lg shadow-blue-600/30">
+            Guardar y Cerrar Alerta
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // URL de producción de Google Apps Script
+    const API_URL = "https://script.google.com/macros/s/AKfycbyFB-PxGPPIr2hZT_HNw2EpqvsStQC05a1JFdCvyboIC4UIyyIIdnnYUh_Zv5Q6u6GjSg/exec";
+
+    let usuarioActual = "";
+    let alertaSeleccionada = null;
+    let dictamenSeleccionado = "";
+    let timerInterval = null;
+    let contadorSegundos = 10;
+
+    // Inicializar íconos Lucide
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+    });
+
+    // Validar login básico
+    function validarAcceso(e) {
+      e.preventDefault();
+      const user = document.getElementById("login-user").value.trim();
+      const pass = document.getElementById("login-pass").value.trim();
+
+      if (user !== "" && pass !== "") {
+        usuarioActual = user;
+        document.getElementById("user-display").innerText = usuarioActual;
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("app-screen").classList.remove("hidden");
+        
+        iniciarPollering();
+        cargarAlertas();
+      } else {
+        document.getElementById("login-error").classList.remove("hidden");
+      }
+    }
+
+    function cerrarSesion() {
+      clearInterval(timerInterval);
+      document.getElementById("app-screen").classList.add("hidden");
+      document.getElementById("login-screen").classList.remove("hidden");
+      document.getElementById("form-login").reset();
+    }
+
+    // Polling cada 10 segundos
+    function iniciarPollering() {
+      timerInterval = setInterval(() => {
+        contadorSegundos--;
+        document.getElementById("timer-counter").innerText = contadorSegundos;
+        
+        if (contadorSegundos <= 0) {
+          contadorSegundos = 10;
+          cargarAlertas();
+        }
+      }, 1000);
+    }
+
+    // Fetch para obtener alertas desde Google Apps Script
+    async function cargarAlertas() {
+      try {
+        const response = await fetch(`${API_URL}?action=getAlertas`);
+        const data = await response.json();
+        
+        if (data.status === "success") {
+          renderizarAlertas(data.data);
+        }
+      } catch (err) {
+        console.error("Error al obtener alertas:", err);
+      }
+    }
+
+    // Renderizado en la interfaz y semáforo de prioridades
+    function renderizarAlertas(alertas) {
+      const tbody = document.getElementById("tabla-alertas");
+      tbody.innerHTML = "";
+
+      let countPanico = 0, countParo = 0, countDesconexion = 0, countVelocidad = 0;
+
+      if (!alertas || alertas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">Sin alertas pendientes de atención</td></tr>`;
+        actualizarContadores(0,0,0,0);
+        return;
+      }
+
+      alertas.forEach(item => {
+        const ev = item.Evento ? item.Evento.toLowerCase() : "";
+        
+        if (ev.includes("pánico") || ev.includes("panico")) countPanico++;
+        else if (ev.includes("paro")) countParo++;
+        else if (ev.includes("desconexión") || ev.includes("desconexion")) countDesconexion++;
+        else if (ev.includes("velocidad")) countVelocidad++;
+
+        let badgePrioridad = `<span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">Media</span>`;
+        if (ev.includes("pánico") || ev.includes("panico")) {
+          badgePrioridad = `<span class="px-2 py-1 bg-red-600/30 text-red-400 font-bold rounded text-xs animate-pulse">PÁNICO</span>`;
+        }
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-3 px-4">${badgePrioridad}</td>
+          <td class="py-3 px-4 font-semibold text-white">${item.Unidad || '--'}</td>
+          <td class="py-3 px-4">${item.Evento || '--'}</td>
+          <td class="py-3 px-4 text-xs text-slate-400">${item.Fecha_Hora || '--'}</td>
+          <td class="py-3 px-4 text-xs">${item.Ubicacion || 'N/D'}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded">${item.Estatus || 'PENDIENTE'}</span></td>
+          <td class="py-3 px-4 text-center">
+            <button onclick='abrirModalAtencion(${JSON.stringify(item)})' 
+                    class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold">
+              Atender
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      actualizarContadores(countPanico, countParo, countDesconexion, countVelocidad);
+    }
+
+    function actualizarContadores(p, pr, d, v) {
+      document.getElementById("count-panico").innerText = p;
+      document.getElementById("count-paro").innerText = pr;
+      document.getElementById("count-desconexion").innerText = d;
+      document.getElementById("count-velocidad").innerText = v;
+    }
+
+    // Modal de atención
+    function abrirModalAtencion(alerta) {
+      alertaSeleccionada = alerta;
+      dictamenSeleccionado = "";
+      document.getElementById("modal-unidad").innerText = alerta.Unidad;
+      document.getElementById("modal-evento").innerText = alerta.Evento;
+      document.getElementById("modal-fecha").innerText = alerta.Fecha_Hora;
+      document.getElementById("modal-comentario").value = "";
+      
+      // Reset estilos botones
+      document.getElementById("btn-procede").className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-emerald-500";
+      document.getElementById("btn-no-procede").className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-red-500";
+
+      document.getElementById("modal-atender").classList.remove("hidden");
+    }
+
+    function seleccionarDictamen(tipo) {
+      dictamenSeleccionado = tipo;
+      const btnP = document.getElementById("btn-procede");
+      const btnNP = document.getElementById("btn-no-procede");
+
+      if (tipo === "PROCEDE") {
+        btnP.className = "py-2.5 px-4 rounded-lg border border-emerald-500 bg-emerald-600 text-white font-bold";
+        btnNP.className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-400";
+      } else {
+        btnNP.className = "py-2.5 px-4 rounded-lg border border-red-500 bg-red-600 text-white font-bold";
+        btnP.className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-400";
+      }
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal-atender").classList.add("hidden");
+    }
+
+    async function guardarAtencion(e) {
+      e.preventDefault();
+      if (!dictamenSeleccionado) {
+        alert("Selecciona si 'PROCEDE' o 'NO PROCEDE'");
+        return;
+      }
+
+      const comentario = document.getElementById("modal-comentario").value;
+
+      const payload = {
+        action: "atenderAlertas",
+        id: alertaSeleccionada.ID_Alerta || alertaSeleccionada.id,
+        estatus: dictamenSeleccionado,
+        comentario: comentario,
+        usuario: usuarioActual
+      };
+
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        cerrarModal();
+        cargarAlertas(); // Recarga dinámica inmediata
+      } catch (err) {
+        alert("Error al intentar guardar en el servidor");
+      }
+    }
+  </script>
+</body>
+</html>
