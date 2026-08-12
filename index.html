@@ -31,13 +31,13 @@
       <form id="form-login" onsubmit="validarAcceso(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Usuario</label>
-          <input type="text" id="login-user" required placeholder="Usuario" 
+          <input type="text" id="login-user" required placeholder="Usuario"
                  class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
         </div>
 
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Contraseña</label>
-          <input type="password" id="login-pass" required placeholder="••••••••" 
+          <input type="password" id="login-pass" required placeholder="••••••••"
                  class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
         </div>
 
@@ -45,7 +45,7 @@
           Usuario o contraseña incorrectos.
         </div>
 
-        <button type="submit" 
+        <button type="submit"
                 class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition duration-200 text-sm shadow-lg shadow-blue-600/30">
           Iniciar Sesión
         </button>
@@ -56,7 +56,9 @@
   <div id="app-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
     <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <i data-lucide="radar" class="w-6 h-6 text-blue-500"></i>
+        <img src="https://raw.githubusercontent.com/monitoreotimetga-max/Monitoreo-METGA/main/logo%20monitoreo.png"
+             alt="Logo Monitoreo MEGA"
+             class="w-9 h-9 rounded-full object-cover border border-slate-700">
         <h2 class="font-bold text-lg text-white tracking-wide">Monitoreo MEGA</h2>
       </div>
 
@@ -159,11 +161,11 @@
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Dictamen de Atención</label>
           <div class="grid grid-cols-2 gap-3">
-            <button type="button" id="btn-procede" onclick="seleccionarDictamen('PROCEDE')" 
+            <button type="button" id="btn-procede" onclick="seleccionarDictamen('PROCEDE')"
                     class="py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-emerald-500">
               PROCEDE
             </button>
-            <button type="button" id="btn-no-procede" onclick="seleccionarDictamen('NO PROCEDE')" 
+            <button type="button" id="btn-no-procede" onclick="seleccionarDictamen('NO PROCEDE')"
                     class="py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-red-500">
               NO PROCEDE
             </button>
@@ -172,7 +174,7 @@
 
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Comentarios / Bitácora</label>
-          <textarea id="modal-comentario" rows="3" required placeholder="Escribe las acciones tomadas..." 
+          <textarea id="modal-comentario" rows="3" required placeholder="Escribe las acciones tomadas..."
                     class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm"></textarea>
         </div>
 
@@ -397,21 +399,20 @@
 
       const comentario = document.getElementById("modal-comentario").value.trim();
 
-      const payload = {
-        action: "updateStatus",
-        idAlerta: alertaSeleccionada.id,
-        estatus: dictamenSeleccionado,
-        comentario: comentario,
-        atendio: usuarioActual
-      };
+      const body =
+        "action=updateStatus" +
+        "&idAlerta=" + encodeURIComponent(alertaSeleccionada.id) +
+        "&estatus=" + encodeURIComponent(dictamenSeleccionado) +
+        "&comentario=" + encodeURIComponent(comentario) +
+        "&atendio=" + encodeURIComponent(usuarioActual);
 
       try {
         const response = await fetch(API_URL, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
           },
-          body: JSON.stringify(payload)
+          body: body
         });
 
         const result = await response.json();
@@ -423,6 +424,7 @@
         cerrarModal();
         cargarAlertas();
       } catch (err) {
+        console.error("Error en guardarAtencion:", err);
         alert("Error al intentar guardar la atención: " + (err.message || err));
       }
     }
