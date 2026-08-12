@@ -60,7 +60,7 @@
       <div class="flex items-center space-x-6">
         <div class="flex items-center space-x-2 text-xs text-slate-400">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Actualización en vivo (<span id="timer-counter">10</span>s)</span>
+          <span>Actualización en vivo (<span id="timer-counter">60</span>s)</span>
         </div>
 
         <div class="flex items-center space-x-2 border-l border-slate-800 pl-4">
@@ -74,7 +74,6 @@
     </header>
 
     <main class="flex-1 p-6 overflow-y-auto space-y-6">
-      
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
           <div>
@@ -131,12 +130,10 @@
                 <th class="py-3 px-4 text-center">Acción</th>
               </tr>
             </thead>
-            <tbody id="tabla-alertas" class="divide-y divide-slate-800/60">
-              </tbody>
+            <tbody id="tabla-alertas" class="divide-y divide-slate-800/60"></tbody>
           </table>
         </div>
       </div>
-
     </main>
   </div>
 
@@ -189,35 +186,50 @@
   </div>
 
   <script>
-    // URL de producción de Google Apps Script
     const API_URL = "https://script.google.com/macros/s/AKfycbyFB-PxGPPIr2hZT_HNw2EpqvsStQC05a1JFdCvyboIC4UIyyIIdnnYUh_Zv5Q6u6GjSg/exec";
 
     let usuarioActual = "";
     let alertaSeleccionada = null;
     let dictamenSeleccionado = "";
     let timerInterval = null;
-    let contadorSegundos = 10;
+    let contadorSegundos = 60;
 
-    // Inicializar íconos Lucide
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
     });
 
-    // Validar login básico
-    function validarAcceso(e) {
+    async function validarAcceso(e) {
       e.preventDefault();
+
       const user = document.getElementById("login-user").value.trim();
       const pass = document.getElementById("login-pass").value.trim();
 
-      if (user !== "" && pass !== "") {
-        usuarioActual = user;
-        document.getElementById("user-display").innerText = usuarioActual;
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("app-screen").classList.remove("hidden");
-        
-        iniciarPollering();
-        cargarAlertas();
-      } else {
+      if (!user || !pass) {
+        document.getElementById("login-error").innerText = "Debes ingresar usuario y contraseña.";
+        document.getElementById("login-error").classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const url = `${API_URL}?action=login&usuario=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === "success") {
+          usuarioActual = data.user.usuario || user;
+          document.getElementById("user-display").innerText = usuarioActual;
+          document.getElementById("login-screen").classList.add("hidden");
+          document.getElementById("app-screen").classList.remove("hidden");
+          document.getElementById("login-error").classList.add("hidden");
+
+          iniciarPolling();
+          cargarAlertas();
+        } else {
+          document.getElementById("login-error").innerText = data.message || "Usuario o contraseña incorrectos.";
+          document.getElementById("login-error").classList.remove("hidden");
+        }
+      } catch (err) {
+        document.getElementById("login-error").innerText = "Error de conexión con el servidor.";
         document.getElementById("login-error").classList.remove("hidden");
       }
     }
@@ -227,36 +239,38 @@
       document.getElementById("app-screen").classList.add("hidden");
       document.getElementById("login-screen").classList.remove("hidden");
       document.getElementById("form-login").reset();
+      document.getElementById("login-error").classList.add("hidden");
     }
 
-    // Polling cada 10 segundos
-    function iniciarPollering() {
+    function iniciarPolling() {
+      clearInterval(timerInterval);
+
       timerInterval = setInterval(() => {
         contadorSegundos--;
         document.getElementById("timer-counter").innerText = contadorSegundos;
-        
+
         if (contadorSegundos <= 0) {
-          contadorSegundos = 10;
+          contadorSegundos = 60;
           cargarAlertas();
         }
       }, 1000);
     }
 
-    // Fetch para obtener alertas desde Google Apps Script
     async function cargarAlertas() {
       try {
         const response = await fetch(`${API_URL}?action=getAlertas`);
         const data = await response.json();
-        
+
         if (data.status === "success") {
           renderizarAlertas(data.data);
+        } else {
+          console.error("Error:", data.message || "No se pudieron cargar alertas");
         }
       } catch (err) {
         console.error("Error al obtener alertas:", err);
       }
     }
 
-    // Renderizado en la interfaz y semáforo de prioridades
     function renderizarAlertas(alertas) {
       const tbody = document.getElementById("tabla-alertas");
       tbody.innerHTML = "";
@@ -265,13 +279,13 @@
 
       if (!alertas || alertas.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">Sin alertas pendientes de atención</td></tr>`;
-        actualizarContadores(0,0,0,0);
+        actualizarContadores(0, 0, 0, 0);
         return;
       }
 
       alertas.forEach(item => {
-        const ev = item.Evento ? item.Evento.toLowerCase() : "";
-        
+        const ev = (item.evento || "").toLowerCase();
+
         if (ev.includes("pánico") || ev.includes("panico")) countPanico++;
         else if (ev.includes("paro")) countParo++;
         else if (ev.includes("desconexión") || ev.includes("desconexion")) countDesconexion++;
@@ -286,13 +300,13 @@
         tr.className = "hover:bg-slate-800/40 transition";
         tr.innerHTML = `
           <td class="py-3 px-4">${badgePrioridad}</td>
-          <td class="py-3 px-4 font-semibold text-white">${item.Unidad || '--'}</td>
-          <td class="py-3 px-4">${item.Evento || '--'}</td>
-          <td class="py-3 px-4 text-xs text-slate-400">${item.Fecha_Hora || '--'}</td>
-          <td class="py-3 px-4 text-xs">${item.Ubicacion || 'N/D'}</td>
-          <td class="py-3 px-4"><span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded">${item.Estatus || 'PENDIENTE'}</span></td>
+          <td class="py-3 px-4 font-semibold text-white">${item.unidad || '--'}</td>
+          <td class="py-3 px-4">${item.evento || '--'}</td>
+          <td class="py-3 px-4 text-xs text-slate-400">${item.fecha || '--'}</td>
+          <td class="py-3 px-4 text-xs">${item.ubicacion || 'N/D'}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded">${item.estatus || 'PENDIENTE'}</span></td>
           <td class="py-3 px-4 text-center">
-            <button onclick='abrirModalAtencion(${JSON.stringify(item)})' 
+            <button onclick='abrirModalAtencion(${JSON.stringify(item)})'
                     class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold">
               Atender
             </button>
@@ -311,16 +325,16 @@
       document.getElementById("count-velocidad").innerText = v;
     }
 
-    // Modal de atención
     function abrirModalAtencion(alerta) {
       alertaSeleccionada = alerta;
       dictamenSeleccionado = "";
-      document.getElementById("modal-unidad").innerText = alerta.Unidad;
-      document.getElementById("modal-evento").innerText = alerta.Evento;
-      document.getElementById("modal-fecha").innerText = alerta.Fecha_Hora;
+
+      document.getElementById("modal-unidad").innerText = alerta.unidad || "--";
+      document.getElementById("modal-evento").innerText = alerta.evento || "--";
+      document.getElementById("modal-fecha").innerText = alerta.fecha || "--";
+
       document.getElementById("modal-comentario").value = "";
-      
-      // Reset estilos botones
+
       document.getElementById("btn-procede").className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-emerald-500";
       document.getElementById("btn-no-procede").className = "py-2.5 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:border-red-500";
 
@@ -347,31 +361,40 @@
 
     async function guardarAtencion(e) {
       e.preventDefault();
+
       if (!dictamenSeleccionado) {
         alert("Selecciona si 'PROCEDE' o 'NO PROCEDE'");
         return;
       }
 
-      const comentario = document.getElementById("modal-comentario").value;
+      const comentario = document.getElementById("modal-comentario").value.trim();
 
       const payload = {
-        action: "atenderAlertas",
-        id: alertaSeleccionada.ID_Alerta || alertaSeleccionada.id,
+        action: "updateStatus",
+        idAlerta: alertaSeleccionada.id,
         estatus: dictamenSeleccionado,
         comentario: comentario,
-        usuario: usuarioActual
+        atendio: usuarioActual
       };
 
       try {
-        await fetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify(payload)
         });
 
+        const result = await response.json();
+        if (result.status !== "success") {
+          throw new Error(result.message || "No se pudo actualizar");
+        }
+
         cerrarModal();
-        cargarAlertas(); // Recarga dinámica inmediata
+        cargarAlertas();
       } catch (err) {
-        alert("Error al intentar guardar en el servidor");
+        alert("Error al intentar guardar la atención: " + (err.message || err));
       }
     }
   </script>
