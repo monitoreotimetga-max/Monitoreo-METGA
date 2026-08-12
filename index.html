@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Centro de Monitoreo - Alertas Wialon</title>
+  <title>Monitoreo MEGA</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
@@ -30,18 +30,21 @@
 
       <form id="form-login" onsubmit="validarAcceso(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Usuario / Monitorista</label>
-          <input type="text" id="login-user" required placeholder="Ej. Monitorista_01" 
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Usuario</label>
+          <input type="text" id="login-user" required placeholder="Usuario" 
                  class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
         </div>
+
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Contraseña</label>
           <input type="password" id="login-pass" required placeholder="••••••••" 
                  class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
         </div>
+
         <div id="login-error" class="text-xs text-red-500 hidden font-medium">
           Usuario o contraseña incorrectos.
         </div>
+
         <button type="submit" 
                 class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition duration-200 text-sm shadow-lg shadow-blue-600/30">
           Iniciar Sesión
@@ -54,7 +57,7 @@
     <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <i data-lucide="radar" class="w-6 h-6 text-blue-500"></i>
-        <h2 class="font-bold text-lg text-white tracking-wide">Monitoreo Wialon v1.0</h2>
+        <h2 class="font-bold text-lg text-white tracking-wide">Monitoreo MEGA</h2>
       </div>
 
       <div class="flex items-center space-x-6">
@@ -124,7 +127,7 @@
                 <th class="py-3 px-4">Prioridad</th>
                 <th class="py-3 px-4">Unidad</th>
                 <th class="py-3 px-4">Evento</th>
-                <th class="py-3 px-4">Fecha / Hora</th>
+                <th class="py-3 px-4">Hora / Fecha</th>
                 <th class="py-3 px-4">Ubicación</th>
                 <th class="py-3 px-4">Estatus</th>
                 <th class="py-3 px-4 text-center">Acción</th>
@@ -149,7 +152,7 @@
       <div class="space-y-2 text-sm bg-slate-950 p-3 rounded-lg border border-slate-800/80">
         <p><span class="text-slate-400">Unidad:</span> <strong id="modal-unidad" class="text-white">--</strong></p>
         <p><span class="text-slate-400">Evento:</span> <strong id="modal-evento" class="text-amber-400">--</strong></p>
-        <p><span class="text-slate-400">Fecha/Hora:</span> <span id="modal-fecha" class="text-slate-300">--</span></p>
+        <p><span class="text-slate-400">Hora / Fecha:</span> <span id="modal-fecha" class="text-slate-300">--</span></p>
       </div>
 
       <form onsubmit="guardarAtencion(event)" class="space-y-4">
@@ -271,6 +274,23 @@
       }
     }
 
+    function formatFechaHora(valor) {
+      if (!valor) return "--";
+
+      const d = new Date(valor);
+
+      if (isNaN(d.getTime())) return valor;
+
+      const dia = String(d.getDate()).padStart(2, "0");
+      const mes = String(d.getMonth() + 1).padStart(2, "0");
+      const anio = d.getFullYear();
+
+      const horas = String(d.getHours()).padStart(2, "0");
+      const minutos = String(d.getMinutes()).padStart(2, "0");
+
+      return `${horas}:${minutos} ${dia}/${mes}/${anio}`;
+    }
+
     function renderizarAlertas(alertas) {
       const tbody = document.getElementById("tabla-alertas");
       tbody.innerHTML = "";
@@ -296,14 +316,21 @@
           badgePrioridad = `<span class="px-2 py-1 bg-red-600/30 text-red-400 font-bold rounded text-xs animate-pulse">PÁNICO</span>`;
         }
 
+        const ubicacionHtml = item.ubicacion && item.ubicacion !== "S/N"
+          ? `<a href="${item.ubicacion}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline">
+               <i data-lucide="map-pin" class="w-4 h-4"></i>
+               Ubicación
+             </a>`
+          : `<span class="text-slate-500">N/D</span>`;
+
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-800/40 transition";
         tr.innerHTML = `
           <td class="py-3 px-4">${badgePrioridad}</td>
           <td class="py-3 px-4 font-semibold text-white">${item.unidad || '--'}</td>
           <td class="py-3 px-4">${item.evento || '--'}</td>
-          <td class="py-3 px-4 text-xs text-slate-400">${item.fecha || '--'}</td>
-          <td class="py-3 px-4 text-xs">${item.ubicacion || 'N/D'}</td>
+          <td class="py-3 px-4 text-xs text-slate-400">${formatFechaHora(item.fecha)}</td>
+          <td class="py-3 px-4 text-xs">${ubicacionHtml}</td>
           <td class="py-3 px-4"><span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded">${item.estatus || 'PENDIENTE'}</span></td>
           <td class="py-3 px-4 text-center">
             <button onclick='abrirModalAtencion(${JSON.stringify(item)})'
@@ -316,6 +343,7 @@
       });
 
       actualizarContadores(countPanico, countParo, countDesconexion, countVelocidad);
+      lucide.createIcons();
     }
 
     function actualizarContadores(p, pr, d, v) {
@@ -331,7 +359,7 @@
 
       document.getElementById("modal-unidad").innerText = alerta.unidad || "--";
       document.getElementById("modal-evento").innerText = alerta.evento || "--";
-      document.getElementById("modal-fecha").innerText = alerta.fecha || "--";
+      document.getElementById("modal-fecha").innerText = formatFechaHora(alerta.fecha);
 
       document.getElementById("modal-comentario").value = "";
 
@@ -387,6 +415,7 @@
         });
 
         const result = await response.json();
+
         if (result.status !== "success") {
           throw new Error(result.message || "No se pudo actualizar");
         }
